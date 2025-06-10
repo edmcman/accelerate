@@ -499,7 +499,24 @@ def dispatch_model(
         elif is_musa_available() and isinstance(device, int):
             device = f"musa:{device}"
         if device != "disk":
-            model.to(device)
+            # Check if model has meta tensors and handle them properly
+            has_meta_tensors = any(
+                param.device.type == "meta" 
+                for param in model.parameters()
+            )
+            
+            if has_meta_tensors:
+                # Use set_module_tensor_to_device for models with meta tensors
+                from .utils.modeling import set_module_tensor_to_device
+                for name, param in model.named_parameters():
+                    if param.device.type == "meta":
+                        set_module_tensor_to_device(model, name, device)
+                for name, buffer in model.named_buffers():
+                    if buffer.device.type == "meta":
+                        set_module_tensor_to_device(model, name, device)
+            else:
+                # Use standard .to() for models without meta tensors
+                model.to(device)
         else:
             raise ValueError(
                 "You are trying to offload the whole model to the disk. Please use the `disk_offload` function instead."
