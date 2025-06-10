@@ -326,7 +326,12 @@ def set_module_tensor_to_device(
         if "xpu" in str(device) and not is_xpu_available():
             raise ValueError(f'{device} is not available, you should use device="cpu" instead')
         if value is None:
-            new_value = old_value.to(device)
+            # Check if we're moving from meta device to avoid the "Cannot copy out of meta tensor" error
+            if old_value.device.type == "meta" and str(device) not in ["meta"] and torch.device(str(device)).type != "meta":
+                # Use to_empty() for meta tensors as they contain no actual data
+                new_value = old_value.to_empty(device)
+            else:
+                new_value = old_value.to(device)
             if dtype is not None and device in ["meta", torch.device("meta")]:
                 if not str(old_value.dtype).startswith(("torch.uint", "torch.int", "torch.bool")):
                     new_value = new_value.to(dtype)
