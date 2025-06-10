@@ -327,7 +327,22 @@ def set_module_tensor_to_device(
             raise ValueError(f'{device} is not available, you should use device="cpu" instead')
         if value is None:
             # Check if we're moving from meta device to avoid the "Cannot copy out of meta tensor" error
-            if old_value.device.type == "meta" and str(device) not in ["meta"] and torch.device(str(device)).type != "meta":
+            # We need to safely check the target device type without creating invalid torch.device objects
+            target_device_type = None
+            if str(device) == "meta":
+                target_device_type = "meta"
+            elif isinstance(device, torch.device):
+                target_device_type = device.type
+            elif isinstance(device, str) and device.startswith(("cuda", "cpu", "mps", "xpu", "npu", "mlu", "sdaa", "musa")):
+                target_device_type = device.split(":")[0]
+            elif isinstance(device, int) or (isinstance(device, str) and device.isdigit()):
+                # Numeric device IDs typically refer to CUDA devices
+                target_device_type = "cuda"
+            else:
+                # For other string devices, assume they're not meta
+                target_device_type = "unknown"
+            
+            if old_value.device.type == "meta" and target_device_type not in ["meta"]:
                 # Use to_empty() for meta tensors as they contain no actual data
                 new_value = old_value.to_empty(device)
             else:
