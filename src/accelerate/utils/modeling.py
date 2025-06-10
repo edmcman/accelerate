@@ -343,8 +343,14 @@ def set_module_tensor_to_device(
                 target_device_type = "unknown"
             
             if old_value.device.type == "meta" and target_device_type not in ["meta"]:
-                # Use to_empty() for meta tensors as they contain no actual data
-                new_value = old_value.to_empty(device)
+                # For meta tensors, we need to create a new empty tensor with the same properties
+                # but on the target device, since meta tensors contain no actual data
+                if hasattr(old_value, 'to_empty'):
+                    # Use to_empty() if available (newer PyTorch versions)
+                    new_value = old_value.to_empty(device)
+                else:
+                    # Fallback: create empty tensor with same shape, dtype on target device
+                    new_value = torch.empty_like(old_value, device=device)
             else:
                 new_value = old_value.to(device)
             if dtype is not None and device in ["meta", torch.device("meta")]:
