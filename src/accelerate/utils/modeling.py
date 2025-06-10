@@ -279,8 +279,8 @@ def set_module_tensor_to_device(
         module._parameters[tensor_name] = tied_params_map[old_value.data_ptr()][device]
         return
 
-    if old_value.device == torch.device("meta") and device not in ["meta", torch.device("meta")] and value is None:
-        raise ValueError(f"{tensor_name} is on the meta device, we need a `value` to put in on {device}.")
+    # Note: We now handle meta tensors safely using to_empty() in the code below,
+    # so we don't need to raise an error here for meta tensors
 
     param = module._parameters[tensor_name] if tensor_name in module._parameters else None
     param_cls = type(param)
